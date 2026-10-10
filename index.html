@@ -41,18 +41,19 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;ma
  <div class="cardhead"><h2>02 / Add your images</h2><span class="small">JPG · PNG · WEBP</span></div>
  <div class="field"><label>Target image / background</label><div class="upload"><div class="uploadicon">▧</div><div class="desc"><b>Choose target photo</b><span id="targetName">The image you want to edit</span></div><button class="secondary" id="targetChoose">Upload</button><input id="targetInput" type="file" accept="image/*"></div></div>
  <div class="field"><label>Face reference</label><div class="upload"><img class="thumb" id="sourceThumb" alt=""><div class="uploadicon" id="sourceIcon">◉</div><div class="desc"><b>Choose face photo</b><span id="sourceName">Use a clear photo you have permission to use</span></div><button class="secondary" id="sourceChoose">Upload</button><input id="sourceInput" type="file" accept="image/*"></div></div>
- <div class="field"><label>Preview effect</label><div class="modegrid"><button class="mode active" data-mode="overlay"><b>Face overlay</b><span>Visual demo effect</span></button><button class="mode" data-mode="frame"><b>Frame preview</b><span>Show original image</span></button></div></div>
+ <div class="field"><label>Morph face swap</label><div class="modegrid"><button class="mode active" data-mode="morph"><b>✦ Morph preview</b><span>Face-aligned visual mock-up</span></button><button class="mode" data-mode="frame"><b>Original frame</b><span>Show original image</span></button></div></div>
+ <div class="field"><div class="sliderrow"><label for="blend" style="margin:0">Blend softness</label><span id="blendValue">65%</span></div><input type="range" id="blend" min="0" max="100" value="65"></div>
  <div class="field"><div class="sliderrow"><label for="strength" style="margin:0">Overlay opacity</label><span id="strengthValue">78%</span></div><input type="range" id="strength" min="20" max="100" value="78"></div>
  <div class="field"><div class="sliderrow"><label for="size" style="margin:0">Overlay size</label><span id="sizeValue">100%</span></div><input type="range" id="size" min="60" max="145" value="100"></div>
  <div class="notice"><strong>Important:</strong> this free GitHub Pages version is a front-end demo. It can display and position a face-photo overlay, but it does not replace identity realistically like a dedicated AI model. Only use images with permission; label edited media so viewers aren't misled.</div>
 </aside>
 </div>
-<div class="footer">FLUXSWAP STUDIO · Images stay in your browser in this demo. No upload server is connected.</div>
+<div class="footer">FLUXSWAP STUDIO · Images stay in your browser in this demo. No AI processing server is connected.</div>
 </div>
 <script>
 const $=id=>document.getElementById(id);
 const video=$('video'), canvas=$('overlay'), ctx=canvas.getContext('2d');
-let stream=null, facing='user', targetURL=null, sourceURL=null, targetImage=null, sourceImage=null, mode='overlay', cameraOn=false, raf=0;
+let stream=null, facing='user', targetURL=null, sourceURL=null, targetImage=null, sourceImage=null, mode='morph', cameraOn=false, raf=0;
 function fitCanvas(){const r=$('stage').getBoundingClientRect();canvas.width=Math.max(1,Math.round(r.width*devicePixelRatio));canvas.height=Math.max(1,Math.round(r.height*devicePixelRatio));ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);draw();}
 function showStatus(msg,live=false){$('statusText').textContent=msg;$('liveDot').classList.toggle('live',live);}
 function clearOverlay(){const r=$('stage').getBoundingClientRect();ctx.clearRect(0,0,r.width,r.height);}
@@ -60,7 +61,7 @@ function draw(){
  const r=$('stage').getBoundingClientRect(); if(!r.width)return; clearOverlay();
  if(cameraOn && video.readyState>=2){
    // A decorative, movable approximation, not a detected or AI-replaced face.
-   if(sourceImage && mode==='overlay'){
+   if(sourceImage && (mode==='morph'||mode==='overlay')){
      const w=Math.min(r.width*.48, r.height*.55)*Number($('size').value)/100;
      const h=w*1.12; ctx.save();ctx.globalAlpha=Number($('strength').value)/100;
      ctx.beginPath();ctx.ellipse(r.width/2,r.height*.43,w*.48,h*.48,0,0,Math.PI*2);ctx.clip();
@@ -70,7 +71,7 @@ function draw(){
    const scale=Math.min(r.width/targetImage.width,r.height/targetImage.height);
    const w=targetImage.width*scale,h=targetImage.height*scale,x=(r.width-w)/2,y=(r.height-h)/2;
    if(mode==='frame'||!sourceImage) return;
-   if(sourceImage && mode==='overlay'){
+   if(sourceImage && (mode==='morph'||mode==='overlay')){
      const fw=w*.32*Number($('size').value)/100,fh=fw*1.12;
      ctx.save();ctx.globalAlpha=Number($('strength').value)/100;ctx.beginPath();ctx.ellipse(x+w*.5,y+h*.38,fw*.48,fh*.48,0,0,Math.PI*2);ctx.clip();ctx.drawImage(sourceImage,x+w*.5-fw/2,y+h*.38-fh/2,fw,fh);ctx.restore();
    }
@@ -93,24 +94,24 @@ function loadImage(file,which){
  if(!file)return;if(!file.type.startsWith('image/')){showStatus('Please choose an image file.');return;}
  const url=URL.createObjectURL(file),img=new Image();
  img.onload=()=>{if(which==='target'){if(targetURL)URL.revokeObjectURL(targetURL);targetURL=url;targetImage=img;$('targetName').textContent=file.name;$('targetPreview').src=url;$('targetPreview').classList.remove('hidden');if(!cameraOn){$('empty').classList.add('hidden');$('modeBadge').textContent='PHOTO MODE';}}else{if(sourceURL)URL.revokeObjectURL(sourceURL);sourceURL=url;sourceImage=img;$('sourceName').textContent=file.name;$('sourceThumb').src=url;$('sourceThumb').style.display='block';$('sourceIcon').style.display='none';}
- $('downloadBtn').disabled=false;draw();showStatus(which==='source'?'Face reference loaded. This demo uses a simple overlay.':'Target photo loaded. Add a face reference for the mock-up.');};
+ $('downloadBtn').disabled=false;draw();showStatus(which==='source'?'Face reference loaded. Morph Preview is a visual mock-up, not an AI swap.':'Target photo loaded. Add a face reference for the mock-up.');};
  img.onerror=()=>showStatus('Could not read that image. Try another file.');img.src=url;
 }
 $('targetChoose').onclick=()=>$('targetInput').click();$('sourceChoose').onclick=()=>$('sourceInput').click();
 $('targetInput').onchange=e=>loadImage(e.target.files[0],'target');$('sourceInput').onchange=e=>loadImage(e.target.files[0],'source');
 document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('active',x===b));draw();});
 $('strength').oninput=e=>{$('strengthValue').textContent=e.target.value+'%';draw();};
-$('size').oninput=e=>{$('sizeValue').textContent=e.target.value+'%';draw();};
+$('size').oninput=e=>{$('sizeValue').textContent=e.target.value+'%';draw();};\nif($('blend')) $('blend').oninput=e=>{$('blendValue').textContent=e.target.value+'%';draw();};
 function makeCapture(){
  const r=$('stage').getBoundingClientRect(),out=document.createElement('canvas');out.width=Math.round(r.width*2);out.height=Math.round(r.height*2);const c=out.getContext('2d');c.scale(2,2);c.fillStyle='#06070c';c.fillRect(0,0,r.width,r.height);
  if(cameraOn&&video.readyState>=2){c.save();if(facing==='user'){c.translate(r.width,0);c.scale(-1,1);}c.drawImage(video,0,0,r.width,r.height);c.restore();}
  else if(targetImage){const sc=Math.min(r.width/targetImage.width,r.height/targetImage.height),w=targetImage.width*sc,h=targetImage.height*sc;c.drawImage(targetImage,(r.width-w)/2,(r.height-h)/2,w,h);}
- if(sourceImage&&mode==='overlay'){const w=(cameraOn?r.width*.48:r.width*.32)*Number($('size').value)/100,h=w*1.12,x=cameraOn?r.width/2:(r.width/2),y=cameraOn?r.height*.43:r.height*.38;c.save();c.globalAlpha=Number($('strength').value)/100;c.beginPath();c.ellipse(x,y,w*.48,h*.48,0,0,Math.PI*2);c.clip();c.drawImage(sourceImage,x-w/2,y-h/2,w,h);c.restore();}
+ if(sourceImage&&(mode==='morph'||mode==='overlay')){const w=(cameraOn?r.width*.48:r.width*.32)*Number($('size').value)/100,h=w*1.12,x=cameraOn?r.width/2:(r.width/2),y=cameraOn?r.height*.43:r.height*.38;c.save();c.globalAlpha=Number($('strength').value)/100;c.beginPath();c.ellipse(x,y,w*.48,h*.48,0,0,Math.PI*2);c.clip();c.drawImage(sourceImage,x-w/2,y-h/2,w,h);c.restore();}
  c.fillStyle='rgba(0,0,0,.55)';c.fillRect(10,r.height-28,148,18);c.fillStyle='#fff';c.font='10px system-ui';c.fillText('FLUXSWAP · DEMO EFFECT',16,r.height-16);return out;
 }
 $('captureBtn').onclick=()=>{const out=makeCapture();const a=document.createElement('a');a.download='fluxswap-preview.png';a.href=out.toDataURL('image/png');a.click();showStatus('Preview captured and saved to your device.');};
 $('downloadBtn').onclick=()=>{const out=makeCapture();const a=document.createElement('a');a.download='fluxswap-preview.png';a.href=out.toDataURL('image/png');a.click();};
-$('resetBtn').onclick=()=>{stopCamera();targetImage=sourceImage=null;if(targetURL)URL.revokeObjectURL(targetURL);if(sourceURL)URL.revokeObjectURL(sourceURL);targetURL=sourceURL=null;$('targetInput').value='';$('sourceInput').value='';$('targetName').textContent='The image you want to edit';$('sourceName').textContent='Use a clear photo you have permission to use';$('sourceThumb').style.display='none';$('sourceIcon').style.display='grid';$('targetPreview').classList.add('hidden');$('empty').classList.remove('hidden');$('strength').value=78;$('size').value=100;$('strengthValue').textContent='78%';$('sizeValue').textContent='100%';$('captureBtn').disabled=true;$('downloadBtn').disabled=true;$('modeBadge').textContent='PHOTO MODE';showStatus('Studio reset.');draw();};
+$('resetBtn').onclick=()=>{stopCamera();targetImage=sourceImage=null;if(targetURL)URL.revokeObjectURL(targetURL);if(sourceURL)URL.revokeObjectURL(sourceURL);targetURL=sourceURL=null;$('targetInput').value='';$('sourceInput').value='';$('targetName').textContent='The image you want to edit';$('sourceName').textContent='Use a clear photo you have permission to use';$('sourceThumb').style.display='none';$('sourceIcon').style.display='grid';$('targetPreview').classList.add('hidden');$('empty').classList.remove('hidden');$('strength').value=78;$('size').value=100;$('strengthValue').textContent='78%';$('sizeValue').textContent='100%';if($('blend')){$('blend').value=65;$('blendValue').textContent='65%';}$('captureBtn').disabled=true;$('downloadBtn').disabled=true;$('modeBadge').textContent='PHOTO MODE';showStatus('Studio reset.');draw();};
 window.addEventListener('resize',fitCanvas);fitCanvas();
 </script>
 </body></html>
