@@ -1,25 +1,116 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>FaceCam AI</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#090a12">
+<title>FluxSwap Studio — Face Effects</title>
 <style>
-body{margin:0;background:#080a0f;color:#fff;font-family:system-ui;padding:12px}.wrap{max-width:1000px;margin:auto}.top{display:flex;justify-content:space-between;margin-bottom:12px}.logo{font-weight:900;letter-spacing:.12em}.badge{font-size:11px;border:1px solid #29313d;border-radius:20px;padding:6px}.grid{display:grid;grid-template-columns:1.4fr .8fr;gap:14px}.card{background:#10141b;border:1px solid #222b36;border-radius:18px;padding:12px}.stage{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:3/4}video,canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}video{transform:scaleX(-1)}canvas{display:none}.live{position:absolute;top:10px;left:10px;background:#d9ff5a;color:#111700;padding:6px 9px;border-radius:20px;font-size:11px;font-weight:900}.status{position:absolute;bottom:10px;left:10px;right:10px;background:#000b;padding:9px;border-radius:10px;font-size:12px}.buttons{display:flex;gap:7px;margin-top:10px}.btn{flex:1;border:0;border-radius:10px;padding:12px 6px;font-weight:800;background:#1c232d;color:#fff}.main{background:#d9ff5a;color:#101600}label{display:block;color:#a4afbc;font-size:12px;margin:13px 0 6px}input{max-width:100%}#preview{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;background:#07090d}.state,.note{font-size:12px;line-height:1.5;color:#9aa5b2}.state{color:#d9ff5a}@media(max-width:760px){.grid{grid-template-columns:1fr}}
-</style></head><body><div class="wrap">
-<div class="top"><div class="logo">FACECAM AI</div><div class="badge">GITHUB PAGES</div></div>
-<div class="grid"><section class="card"><div class="stage">
-<video id="camera" autoplay playsinline muted></video><canvas id="result"></canvas><div class="live">● LIVE</div><div id="status" class="status">Upload a face photo, then start the camera.</div>
-</div><div class="buttons"><button id="start" class="btn main">Start Camera</button><button id="switch" class="btn">Switch</button><button id="capture" class="btn">Capture</button></div><div id="modelState" class="state">Tracker not started</div></section>
-<aside class="card"><label>Face photo</label><input id="face" type="file" accept="image/*"><img id="preview"><label>Overlay strength</label><input id="strength" type="range" min="0" max="100" value="88" style="width:100%"><label>Overlay size</label><input id="size" type="range" min="75" max="150" value="110" style="width:100%"><p class="note">Browser face tracking with MediaPipe. The camera remains visible even if the tracker fails.</p></aside></div></div>
-<script type="module">
-import {FilesetResolver,FaceLandmarker} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/vision_bundle.mjs";
-const v=document.getElementById("camera"),c=document.getElementById("result"),x=c.getContext("2d"),s=document.getElementById("status"),ms=document.getElementById("modelState");
-let stream=null,landmarker=null,photo=null,facing="user",running=false,last=0,box=null;
-const msg=t=>s.textContent=t;
-async function tracker(){ms.textContent="Tracker loading…";const vision=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm");landmarker=await FaceLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",delegate:"GPU"},runningMode:"VIDEO",numFaces:1});ms.textContent="Tracker ready"}
-async function start(){try{if(stream)stream.getTracks().forEach(t=>t.stop());stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing},width:{ideal:960},height:{ideal:720}},audio:false});v.srcObject=stream;await v.play();msg("Camera is working. Loading face tracker…");try{await tracker()}catch(e){console.error(e);ms.textContent="Tracker failed — camera still works";msg("Camera is working, but face tracking could not load. Check internet.");return}c.width=v.videoWidth||960;c.height=v.videoHeight||720;running=true;requestAnimationFrame(loop)}catch(e){msg("Camera failed. Use HTTPS and allow camera permission.")}}
-function draw(){x.clearRect(0,0,c.width,c.height);x.save();x.translate(c.width,0);x.scale(-1,1);x.drawImage(v,0,0,c.width,c.height);x.restore()}
-function detect(t){if(!landmarker||t-last<70)return;last=t;try{let r=landmarker.detectForVideo(v,t);if(r.faceLandmarks?.length){let p=r.faceLandmarks[0],xs=p.map(q=>q.x),ys=p.map(q=>q.y),a=Math.min(...xs),b=Math.max(...xs),d=Math.min(...ys),e=Math.max(...ys);box={x:a,y:d,w:b-a,h:e-d}}else box=null}catch(e){console.error(e)}}
-function overlay(){if(!photo||!box)return;let W=c.width,H=c.height,cx=W*(1-(box.x+box.w/2)),cy=H*(box.y+box.h/2),k=+document.getElementById("size").value/100,w=box.w*W*1.18*k,h=box.h*H*1.22*k,a=+document.getElementById("strength").value/100;x.save();x.globalAlpha=a;x.beginPath();x.ellipse(cx,cy,w*.49,h*.49,0,0,Math.PI*2);x.clip();let ar=photo.width/photo.height,dw=w,dh=w/ar;if(dh<h){dh=h;dw=h*ar}x.drawImage(photo,cx-dw/2,cy-dh/2,dw,dh);x.restore()}
-function loop(t){if(!running)return;draw();detect(t);if(photo&&box){overlay();s.textContent="Face detected — following your movement."}else if(photo)s.textContent="Face not detected — look at the camera.";requestAnimationFrame(loop)}
-document.getElementById("face").onchange=e=>{let f=e.target.files[0];if(!f)return;let im=new Image();im.onload=()=>{photo=im;document.getElementById("preview").src=im.src;msg("Face photo loaded. Look at the camera.")};im.src=URL.createObjectURL(f)};
-document.getElementById("start").onclick=start;document.getElementById("switch").onclick=()=>{facing=facing==="user"?"environment":"user";start()};document.getElementById("capture").onclick=()=>{if(!c.width)return;let a=document.createElement("a");a.download="facecam.png";a.href=c.toDataURL();a.click()};
-</script></body></html>
+:root{--bg:#090a12;--panel:#121421;--panel2:#191b2c;--line:#292c42;--text:#f4f5ff;--muted:#a2a6c1;--purple:#9c6bff;--cyan:#58e5e0;--pink:#ff6cba}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 10% 0%,#21163b 0,transparent 38%),radial-gradient(ellipse at 100% 20%,#102a39 0,transparent 35%),var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100vh}
+button,input{font:inherit}button{cursor:pointer;border:0;color:var(--text);font-weight:700;border-radius:12px;padding:12px 15px;background:linear-gradient(120deg,#8152ef,#b34de5);box-shadow:0 8px 24px #8a4fff26}button:disabled{opacity:.45;cursor:not-allowed}button.secondary{background:#22243a;border:1px solid var(--line);box-shadow:none}button.ghost{background:transparent;border:1px solid var(--line);box-shadow:none}.wrap{max-width:1120px;margin:auto;padding:20px 16px 40px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:28px}.brand{display:flex;gap:11px;align-items:center;font-weight:900;letter-spacing:-.5px;font-size:20px}.logo{width:39px;height:39px;border-radius:13px;background:linear-gradient(135deg,var(--purple),var(--cyan));display:grid;place-items:center;color:#080912;font-weight:1000;font-size:19px}.pill{border:1px solid #34364c;border-radius:99px;padding:7px 11px;color:#d3d4e8;font-size:12px;background:#111321b8}
+.hero{margin:10px 0 22px}.eyebrow{color:var(--cyan);font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase}.hero h1{font-size:clamp(30px,5vw,51px);line-height:1.04;letter-spacing:-1.7px;margin:10px 0}.hero p{color:var(--muted);max-width:640px;margin:0}
+.grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:16px}.card{background:linear-gradient(145deg,#17192aee,#10121eeF);border:1px solid var(--line);border-radius:22px;padding:16px;box-shadow:0 18px 55px #0002}.cardhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}.cardhead h2{font-size:16px;margin:0}.small{font-size:12px;color:var(--muted)}
+.stage{position:relative;background:#06070c;border:1px solid #30324a;border-radius:17px;overflow:hidden;aspect-ratio:4/3;display:grid;place-items:center}.stage video,.stage img#targetPreview{width:100%;height:100%;object-fit:contain;position:absolute;inset:0}.stage video{display:none;transform:scaleX(-1)}.stage canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.empty{text-align:center;padding:20px;color:var(--muted);max-width:310px}.empty .emoji{font-size:42px;margin-bottom:8px}.empty strong{display:block;color:#f0efff;font-size:17px;margin-bottom:5px}.stage-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.stage-tools button{flex:1;min-width:120px}.status{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin-top:12px}.dot{width:8px;height:8px;border-radius:50%;background:#747892}.dot.live{background:#4ee3ad;box-shadow:0 0 12px #4ee3ad88}
+.field{margin-bottom:16px}.field label{display:block;font-weight:750;font-size:13px;margin-bottom:8px}.upload{border:1px dashed #484b68;background:#101220;border-radius:14px;padding:15px;display:flex;align-items:center;gap:12px;min-height:88px}.upload .uploadicon{width:42px;height:42px;border-radius:12px;background:#29213e;display:grid;place-items:center;font-size:21px;flex-shrink:0}.upload .desc{flex:1;min-width:0}.upload .desc b{display:block;font-size:13px}.upload .desc span{font-size:11px;color:var(--muted);display:block;margin-top:3px;overflow-wrap:anywhere}.upload input{display:none}.upload button{padding:9px 11px;font-size:12px}
+.thumb{width:44px;height:44px;border-radius:10px;object-fit:cover;display:none;border:1px solid #555979}.sliderrow{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin:14px 0 6px}input[type=range]{width:100%;accent-color:var(--purple)}
+.modegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.mode{background:#17192a;border:1px solid var(--line);border-radius:13px;padding:12px;text-align:left;box-shadow:none}.mode.active{border-color:var(--purple);background:#29203e}.mode b{display:block;font-size:13px}.mode span{font-size:11px;color:var(--muted)}
+.notice{font-size:12px;color:#c2c5dd;background:#101321;border:1px solid #292c42;padding:12px;border-radius:12px;margin-top:14px}.notice strong{color:#fff}.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.actions button{width:100%}.footer{color:#777c9b;text-align:center;font-size:11px;margin-top:22px}.hidden{display:none!important}
+@media(max-width:760px){.wrap{padding:15px 12px 28px}.grid{grid-template-columns:1fr}.hero{margin-bottom:17px}.card{padding:13px}.stage{aspect-ratio:3/4;max-height:58vh}.stage video,.stage img#targetPreview{object-fit:contain}.brand{font-size:18px}.pill{font-size:10px}.hero h1{letter-spacing:-1px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><div class="brand"><div class="logo">F</div><span>FLUXSWAP <span style="color:var(--cyan)">STUDIO</span></span></div><span class="pill">BROWSER DEMO · FREE</span></header>
+<section class="hero"><div class="eyebrow">Creative face effects</div><h1>Make your next<br><span style="background:linear-gradient(90deg,#b28aff,#58e5e0);-webkit-background-clip:text;background-clip:text;color:transparent">look unforgettable.</span></h1><p>Try a live camera preview, upload images, and create a quick visual mock-up. A photorealistic AI face swap needs a separate AI processing service.</p></section>
+<div class="grid">
+<section class="card">
+ <div class="cardhead"><h2>01 / Preview studio</h2><span class="pill" id="modeBadge">PHOTO MODE</span></div>
+ <div class="stage" id="stage">
+  <div class="empty" id="empty"><div class="emoji">✦</div><strong>Your creative space</strong><span>Start your camera or upload a target photo to begin.</span></div>
+  <video id="video" playsinline muted></video>
+  <img id="targetPreview" alt="Target preview" class="hidden">
+  <canvas id="overlay"></canvas>
+ </div>
+ <div class="stage-tools"><button id="cameraBtn">▶ Start camera</button><button class="secondary" id="switchBtn">↻ Switch camera</button><button class="secondary" id="captureBtn" disabled>◎ Capture</button></div>
+ <div class="status"><span class="dot" id="liveDot"></span><span id="statusText">Ready. Camera permission is only requested when you tap Start camera.</span></div>
+ <div class="actions"><button class="secondary" id="downloadBtn" disabled>↓ Save preview</button><button class="ghost" id="resetBtn">Reset studio</button></div>
+</section>
+<aside class="card">
+ <div class="cardhead"><h2>02 / Add your images</h2><span class="small">JPG · PNG · WEBP</span></div>
+ <div class="field"><label>Target image / background</label><div class="upload"><div class="uploadicon">▧</div><div class="desc"><b>Choose target photo</b><span id="targetName">The image you want to edit</span></div><button class="secondary" id="targetChoose">Upload</button><input id="targetInput" type="file" accept="image/*"></div></div>
+ <div class="field"><label>Face reference</label><div class="upload"><img class="thumb" id="sourceThumb" alt=""><div class="uploadicon" id="sourceIcon">◉</div><div class="desc"><b>Choose face photo</b><span id="sourceName">Use a clear photo you have permission to use</span></div><button class="secondary" id="sourceChoose">Upload</button><input id="sourceInput" type="file" accept="image/*"></div></div>
+ <div class="field"><label>Preview effect</label><div class="modegrid"><button class="mode active" data-mode="overlay"><b>Face overlay</b><span>Visual demo effect</span></button><button class="mode" data-mode="frame"><b>Frame preview</b><span>Show original image</span></button></div></div>
+ <div class="field"><div class="sliderrow"><label for="strength" style="margin:0">Overlay opacity</label><span id="strengthValue">78%</span></div><input type="range" id="strength" min="20" max="100" value="78"></div>
+ <div class="field"><div class="sliderrow"><label for="size" style="margin:0">Overlay size</label><span id="sizeValue">100%</span></div><input type="range" id="size" min="60" max="145" value="100"></div>
+ <div class="notice"><strong>Important:</strong> this free GitHub Pages version is a front-end demo. It can display and position a face-photo overlay, but it does not replace identity realistically like a dedicated AI model. Only use images with permission; label edited media so viewers aren't misled.</div>
+</aside>
+</div>
+<div class="footer">FLUXSWAP STUDIO · Images stay in your browser in this demo. No upload server is connected.</div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const video=$('video'), canvas=$('overlay'), ctx=canvas.getContext('2d');
+let stream=null, facing='user', targetURL=null, sourceURL=null, targetImage=null, sourceImage=null, mode='overlay', cameraOn=false, raf=0;
+function fitCanvas(){const r=$('stage').getBoundingClientRect();canvas.width=Math.max(1,Math.round(r.width*devicePixelRatio));canvas.height=Math.max(1,Math.round(r.height*devicePixelRatio));ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);draw();}
+function showStatus(msg,live=false){$('statusText').textContent=msg;$('liveDot').classList.toggle('live',live);}
+function clearOverlay(){const r=$('stage').getBoundingClientRect();ctx.clearRect(0,0,r.width,r.height);}
+function draw(){
+ const r=$('stage').getBoundingClientRect(); if(!r.width)return; clearOverlay();
+ if(cameraOn && video.readyState>=2){
+   // A decorative, movable approximation, not a detected or AI-replaced face.
+   if(sourceImage && mode==='overlay'){
+     const w=Math.min(r.width*.48, r.height*.55)*Number($('size').value)/100;
+     const h=w*1.12; ctx.save();ctx.globalAlpha=Number($('strength').value)/100;
+     ctx.beginPath();ctx.ellipse(r.width/2,r.height*.43,w*.48,h*.48,0,0,Math.PI*2);ctx.clip();
+     ctx.drawImage(sourceImage,r.width/2-w/2,r.height*.43-h/2,w,h);ctx.restore();
+   }
+ } else if(targetImage){
+   const scale=Math.min(r.width/targetImage.width,r.height/targetImage.height);
+   const w=targetImage.width*scale,h=targetImage.height*scale,x=(r.width-w)/2,y=(r.height-h)/2;
+   if(mode==='frame'||!sourceImage) return;
+   if(sourceImage && mode==='overlay'){
+     const fw=w*.32*Number($('size').value)/100,fh=fw*1.12;
+     ctx.save();ctx.globalAlpha=Number($('strength').value)/100;ctx.beginPath();ctx.ellipse(x+w*.5,y+h*.38,fw*.48,fh*.48,0,0,Math.PI*2);ctx.clip();ctx.drawImage(sourceImage,x+w*.5-fw/2,y+h*.38-fh/2,fw,fh);ctx.restore();
+   }
+ }
+}
+async function startCamera(){
+ try{
+  if(stream)stopCamera();
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}},audio:false});
+  video.srcObject=stream;await video.play();cameraOn=true;video.style.display='block';$('targetPreview').classList.add('hidden');$('empty').classList.add('hidden');
+  $('cameraBtn').textContent='■ Stop camera';$('captureBtn').disabled=false;$('downloadBtn').disabled=false;$('modeBadge').textContent='LIVE PREVIEW';
+  showStatus('Camera is live. Face overlay is a visual mock-up, not an AI identity swap.',true);fitCanvas();loop();
+ }catch(e){showStatus('Camera could not start. Allow camera permission and use the HTTPS GitHub Pages link.');}
+}
+function stopCamera(){cameraOn=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}video.pause();video.srcObject=null;video.style.display='none';cancelAnimationFrame(raf);$('cameraBtn').textContent='▶ Start camera';$('captureBtn').disabled=true;showStatus('Camera stopped.');draw();}
+function loop(){if(!cameraOn)return;draw();raf=requestAnimationFrame(loop);}
+$('cameraBtn').onclick=()=>cameraOn?stopCamera():startCamera();
+$('switchBtn').onclick=()=>{facing=facing==='user'?'environment':'user';if(cameraOn)startCamera();else showStatus('Camera set to '+(facing==='user'?'front':'rear')+'. Tap Start camera.');};
+function loadImage(file,which){
+ if(!file)return;if(!file.type.startsWith('image/')){showStatus('Please choose an image file.');return;}
+ const url=URL.createObjectURL(file),img=new Image();
+ img.onload=()=>{if(which==='target'){if(targetURL)URL.revokeObjectURL(targetURL);targetURL=url;targetImage=img;$('targetName').textContent=file.name;$('targetPreview').src=url;$('targetPreview').classList.remove('hidden');if(!cameraOn){$('empty').classList.add('hidden');$('modeBadge').textContent='PHOTO MODE';}}else{if(sourceURL)URL.revokeObjectURL(sourceURL);sourceURL=url;sourceImage=img;$('sourceName').textContent=file.name;$('sourceThumb').src=url;$('sourceThumb').style.display='block';$('sourceIcon').style.display='none';}
+ $('downloadBtn').disabled=false;draw();showStatus(which==='source'?'Face reference loaded. This demo uses a simple overlay.':'Target photo loaded. Add a face reference for the mock-up.');};
+ img.onerror=()=>showStatus('Could not read that image. Try another file.');img.src=url;
+}
+$('targetChoose').onclick=()=>$('targetInput').click();$('sourceChoose').onclick=()=>$('sourceInput').click();
+$('targetInput').onchange=e=>loadImage(e.target.files[0],'target');$('sourceInput').onchange=e=>loadImage(e.target.files[0],'source');
+document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('active',x===b));draw();});
+$('strength').oninput=e=>{$('strengthValue').textContent=e.target.value+'%';draw();};
+$('size').oninput=e=>{$('sizeValue').textContent=e.target.value+'%';draw();};
+function makeCapture(){
+ const r=$('stage').getBoundingClientRect(),out=document.createElement('canvas');out.width=Math.round(r.width*2);out.height=Math.round(r.height*2);const c=out.getContext('2d');c.scale(2,2);c.fillStyle='#06070c';c.fillRect(0,0,r.width,r.height);
+ if(cameraOn&&video.readyState>=2){c.save();if(facing==='user'){c.translate(r.width,0);c.scale(-1,1);}c.drawImage(video,0,0,r.width,r.height);c.restore();}
+ else if(targetImage){const sc=Math.min(r.width/targetImage.width,r.height/targetImage.height),w=targetImage.width*sc,h=targetImage.height*sc;c.drawImage(targetImage,(r.width-w)/2,(r.height-h)/2,w,h);}
+ if(sourceImage&&mode==='overlay'){const w=(cameraOn?r.width*.48:r.width*.32)*Number($('size').value)/100,h=w*1.12,x=cameraOn?r.width/2:(r.width/2),y=cameraOn?r.height*.43:r.height*.38;c.save();c.globalAlpha=Number($('strength').value)/100;c.beginPath();c.ellipse(x,y,w*.48,h*.48,0,0,Math.PI*2);c.clip();c.drawImage(sourceImage,x-w/2,y-h/2,w,h);c.restore();}
+ c.fillStyle='rgba(0,0,0,.55)';c.fillRect(10,r.height-28,148,18);c.fillStyle='#fff';c.font='10px system-ui';c.fillText('FLUXSWAP · DEMO EFFECT',16,r.height-16);return out;
+}
+$('captureBtn').onclick=()=>{const out=makeCapture();const a=document.createElement('a');a.download='fluxswap-preview.png';a.href=out.toDataURL('image/png');a.click();showStatus('Preview captured and saved to your device.');};
+$('downloadBtn').onclick=()=>{const out=makeCapture();const a=document.createElement('a');a.download='fluxswap-preview.png';a.href=out.toDataURL('image/png');a.click();};
+$('resetBtn').onclick=()=>{stopCamera();targetImage=sourceImage=null;if(targetURL)URL.revokeObjectURL(targetURL);if(sourceURL)URL.revokeObjectURL(sourceURL);targetURL=sourceURL=null;$('targetInput').value='';$('sourceInput').value='';$('targetName').textContent='The image you want to edit';$('sourceName').textContent='Use a clear photo you have permission to use';$('sourceThumb').style.display='none';$('sourceIcon').style.display='grid';$('targetPreview').classList.add('hidden');$('empty').classList.remove('hidden');$('strength').value=78;$('size').value=100;$('strengthValue').textContent='78%';$('sizeValue').textContent='100%';$('captureBtn').disabled=true;$('downloadBtn').disabled=true;$('modeBadge').textContent='PHOTO MODE';showStatus('Studio reset.');draw();};
+window.addEventListener('resize',fitCanvas);fitCanvas();
+</script>
+</body></html>
