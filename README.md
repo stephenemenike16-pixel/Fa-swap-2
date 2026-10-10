@@ -1,28 +1,29 @@
-# FluxSwap Backend Starter
+# FluxSwap AI backend (starter)
 
-This is a small FastAPI backend starter for the FluxSwap front end.
+This version adds a real model-provider integration to `/api/morph-preview` using the Replicate `codeplugtech/face-swap` model. The provider charges according to its current account/pricing terms; this is not guaranteed to be free. Get adult/guardian permission before creating an account, adding billing, or using paid services.
 
-## Deploy from an Android phone
-1. Create a new GitHub repository named `fluxswap-backend`.
-2. Upload `main.py`, `requirements.txt`, and `render.yaml` to the repository root.
-3. Open Render's dashboard and create a **New Web Service**.
-4. Connect the `fluxswap-backend` GitHub repository.
-5. Use:
-   - Runtime: Python
-   - Build command: `pip install -r requirements.txt`
-   - Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-6. Deploy. Open your service URL followed by `/health`; it should return `{"ok":true}`.
-7. Open `/docs` on your service URL to try the endpoints.
+## Deploy update
 
-## Current limitation
-`POST /api/morph-preview` checks that the two uploaded images are valid and returns their dimensions. It does NOT generate a face swap yet. You must integrate a suitable model or authorized AI provider before the endpoint can return an actual generated result.
+Upload `main.py` and `requirements.txt` to the root of your existing GitHub repository `Fa-swap-2`, replacing the current versions. Commit the changes; Render should redeploy automatically.
 
-## Connect the website
-Your browser JavaScript will need to send `FormData` with:
-- `source_face`: source face image
-- `target_image`: target image
-to `https://YOUR-SERVICE.onrender.com/api/morph-preview`.
+## Configure on Render
 
-After deploying, set `ALLOWED_ORIGINS` in the service environment to your exact GitHub Pages origin, for example `https://YOUR-USERNAME.github.io`. Do not include a path. For a quick prototype, the default is `*`; restrict it before public production use.
+In your Render service, open **Environment** and add:
 
-Do not store private API keys in GitHub Pages HTML/JavaScript. Store secrets in the backend host's environment settings. Use only images you have permission to edit and disclose edited media.
+- Key: `REPLICATE_API_TOKEN`
+- Value: your provider API token (keep it secret; never put it in `index.html` or commit it to GitHub)
+
+Also set `ALLOWED_ORIGINS` to the exact origin of your GitHub Pages site, such as `https://YOUR-USERNAME.github.io` or `https://YOUR-USERNAME.github.io/YOUR-REPOSITORY` depending on the published site URL. Do not leave `*` for a public production site.
+
+## API
+
+`POST /api/morph-preview` expects multipart form data:
+- `source_face`: the face image to use
+- `target_image`: the image to edit
+- `consent_confirmed`: `true`
+
+Successful responses are image bytes (`image/jpeg`), not JSON. Update the frontend to send the three fields and display the returned image blob.
+
+## Important
+
+Only process images you own or have clear permission to edit. Do not use face swaps to impersonate someone or mislead people. Do not submit intimate images. This backend starter does not provide authentication, quotas, or abuse prevention; add these before making the service public.
